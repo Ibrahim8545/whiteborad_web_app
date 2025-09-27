@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -12,9 +13,19 @@ class NotesService with ChangeNotifier {
   final List<NoteModel> _notes = [];
   StreamSubscription? _notesSubscription;
   bool _isConnected = true;
+  bool _showPuzzleSuccess = false;
+  String _puzzleWinnerName = '';
+  ui.Image? _completedPuzzleImage;
+  Timer? _puzzleDisplayTimer;
 
   List<NoteModel> get notes => List.unmodifiable(_notes);
   bool get isConnected => _isConnected;
+  bool get showPuzzleSuccess => _showPuzzleSuccess;
+  String get puzzleWinnerName => _puzzleWinnerName;
+  ui.Image? get completedPuzzleImage => _completedPuzzleImage;
+
+  PuzzleSuccessDisplayData? _lastSuccessData;
+  PuzzleSuccessDisplayData? get lastSuccessData => _lastSuccessData;
 
   NotesService() {
     _initializeDatabase();
@@ -194,138 +205,80 @@ class NotesService with ChangeNotifier {
     }
   }
 
+  void triggerPuzzleSuccessDisplay(
+    String playerName,
+    ui.Image completedImage,
+    int secondsElapsed, // <--- تأكد من وجود هذا المتغير
+  ) {
+    _showPuzzleSuccess = true;
+    _puzzleWinnerName = playerName;
+    _completedPuzzleImage = completedImage;
+    _lastSuccessData = PuzzleSuccessDisplayData(
+      playerName: playerName,
+      completedImage: completedImage,
+      secondsElapsed: secondsElapsed,
+      completionTime: DateTime.now(),
+    );
+    notifyListeners();
+    print(
+      'تم إرسال بيانات الفوز للشاشة الأخرى: $playerName في $secondsElapsed ثانية',
+    );
+
+    // إلغاء أي مؤقت سابق وتعيين مؤقت جديد لمدة 10 ثوانٍ
+    _puzzleDisplayTimer?.cancel();
+    _puzzleDisplayTimer = Timer(Duration(seconds: 10), () {
+      hidePuzzleSuccess();
+    });
+  }
+
+  // دالة لإخفاء البازل
+  void hidePuzzleSuccess() {
+    _showPuzzleSuccess = false;
+    _puzzleWinnerName = '';
+    _completedPuzzleImage = null;
+    _puzzleDisplayTimer?.cancel(); // تأكد من إلغاء المؤقت عند الإخفاء
+    notifyListeners();
+  }
+
+  // void triggerPuzzleSuccessDisplay(String playerName, ui.Image completedImage) {
+  //   _showPuzzleSuccess = true;
+  //   _puzzleWinnerName = playerName;
+  //   _completedPuzzleImage = completedImage;
+  //   notifyListeners();
+
+  //   // تعديل المدة إلى 10 ثواني
+  //   _puzzleDisplayTimer?.cancel();
+  //   _puzzleDisplayTimer = Timer(Duration(seconds: 10), () {
+  //     hidePuzzleSuccess();
+  //   });
+  // }
+
+  // // دالة لإخفاء البازل
+  // void hidePuzzleSuccess() {
+  //   _showPuzzleSuccess = false;
+  //   _puzzleWinnerName = '';
+  //   _completedPuzzleImage = null;
+  //   _puzzleDisplayTimer?.cancel();
+  //   notifyListeners();
+  // }
+
   @override
   void dispose() {
     _notesSubscription?.cancel();
     super.dispose();
   }
 }
-// class NotesService with ChangeNotifier {
-//   final DatabaseReference _database = FirebaseDatabase.instance.ref();
-//   final List<NoteModel> _notes = [];
-//   StreamSubscription? _notesSubscription;
-//   bool _isConnected = true;
 
-//   List<NoteModel> get notes => List.unmodifiable(_notes);
-//   bool get isConnected => _isConnected;
+class PuzzleSuccessDisplayData {
+  final String playerName;
+  final ui.Image completedImage;
+  final int secondsElapsed; // <--- تمت الإضافة
+  final DateTime completionTime;
 
-//   NotesService() {
-//     _initializeDatabase();
-//   }
-
-//   void _initializeDatabase() {
-//     _database.child('.info/connected').onValue.listen((event) {
-//       _isConnected = event.snapshot.value as bool? ?? false;
-//       notifyListeners();
-//     });
-
-//     _notesSubscription = _database.child('notes').onValue.listen((event) {
-//       _notes.clear();
-//       if (event.snapshot.value != null) {
-//         final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-//         data.forEach((key, value) {
-//           final noteData = Map<String, dynamic>.from(value);
-//           _notes.add(NoteModel.fromMap(noteData));
-//         });
-//         _notes.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-//       }
-//       notifyListeners();
-//     });
-//   }
-
-//   Future<bool> addNote({
-//     required List<List<dynamic>> drawingPoints,
-//     required Color color,
-//     String author = 'مستخدم',
-//   }) async {
-//     try {
-//       final random = Random();
-//       final x = random.nextDouble() * 500 + 50;
-//       final y = random.nextDouble() * 300 + 50;
-
-//       final note = NoteModel(
-//         drawingPoints: drawingPoints,
-//         color: color,
-//         x: x,
-//         y: y,
-//         author: author,
-//       );
-
-//       await _database.child('notes').child(note.id).set(note.toMap());
-//       return true;
-//     } catch (e) {
-//       print('خطأ في إضافة الملاحظة: $e');
-//       return false;
-//     }
-//   }
-
-//   // New method for image-based notes
-//   Future<bool> addImageNote({
-//     required String imageData,
-//     required Color color,
-//     String author = 'مستخدم',
-//   }) async {
-//     try {
-//       final random = Random();
-//       final x = random.nextDouble() * 500 + 50;
-//       final y = random.nextDouble() * 300 + 50;
-
-//       // Create a simple note with image data instead of drawing points
-//       final noteData = {
-//         'id': DateTime.now().millisecondsSinceEpoch.toString(),
-//         'imageData': imageData,
-//         'color': color.value,
-//         'x': x,
-//         'y': y,
-//         'author': author,
-//         'timestamp': ServerValue.timestamp,
-//         'type': 'image',
-//       };
-
-//       await _database
-//           .child('notes')
-//           .child(noteData['id'] as String)
-//           .set(noteData);
-//       return true;
-//     } catch (e) {
-//       print('خطأ في إضافة ملاحظة الصورة: $e');
-//       return false;
-//     }
-//   }
-
-//   Future<bool> deleteNote(String noteId) async {
-//     try {
-//       await _database.child('notes').child(noteId).remove();
-//       return true;
-//     } catch (e) {
-//       print('خطأ في حذف الملاحظة: $e');
-//       return false;
-//     }
-//   }
-
-//   Future<bool> clearAllNotes() async {
-//     try {
-//       await _database.child('notes').remove();
-//       return true;
-//     } catch (e) {
-//       print('خطأ في مسح الملاحظات: $e');
-//       return false;
-//     }
-//   }
-
-//   Future<bool> updateNotePosition(String noteId, double x, double y) async {
-//     try {
-//       await _database.child('notes').child(noteId).update({'x': x, 'y': y});
-//       return true;
-//     } catch (e) {
-//       print('خطأ في تحديث موقع الملاحظة: $e');
-//       return false;
-//     }
-//   }
-
-//   @override
-//   void dispose() {
-//     _notesSubscription?.cancel();
-//     super.dispose();
-//   }
-// }
+  PuzzleSuccessDisplayData({
+    required this.playerName,
+    required this.completedImage,
+    required this.secondsElapsed, // <--- تمت الإضافة
+    required this.completionTime,
+  });
+}

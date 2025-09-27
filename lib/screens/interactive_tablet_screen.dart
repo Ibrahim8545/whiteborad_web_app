@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_signature_pad/flutter_signature_pad.dart';
+import 'package:testwhiteboard/screens/puzzle_screen.dart';
 // تأكد من وجود هذا المسار في مشروعك
 import 'package:testwhiteboard/services.dart/sercives.dart';
 
@@ -113,12 +114,9 @@ class _InteractiveTabletScreenState extends State<InteractiveTabletScreen>
     );
   }
 
-  // #region Building Widgets
   Widget _buildHeader(BuildContext context, bool isLargeScreen) {
     return Consumer<NotesService>(
       builder: (context, notesService, child) {
-        // 💡 التعديل: تغليف الـ Row بـ SizedBox لضمان العرض الكامل
-        // هذا يضمن أن الـ Row سيتلقى قيود عرض محدودة
         return SizedBox(
           width: double.infinity,
           child: Row(
@@ -126,28 +124,40 @@ class _InteractiveTabletScreenState extends State<InteractiveTabletScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 1. الشعار في الزاوية العلوية اليسرى
+              // الشعار في الزاوية العلوية اليسرى
               Image.asset(
-                'assets/images/logo.png', // ⚠️ تحقق من المسار
-                // 💡 التعديل: زيادة الطول والعرض لملء المساحة العلوية بشكل أكبر في الشاشات الكبيرة
-                height: isLargeScreen ? 180 : 40, // زِد هذه القيمة
-                width: isLargeScreen ? 350 : 40, // زِد هذه القيمة
+                'assets/images/logo.png',
+                height: isLargeScreen ? 180 : 40,
+                width: isLargeScreen ? 350 : 40,
                 color: Colors.white,
               ),
 
-              // Spacer() لضمان أن العناصر التالية ستكون في أقصى اليمين
-              // تم إزالة Spacer() بما أننا نستخدم mainAxisAlignment: MainAxisAlignment.spaceBetween
-              // ولكن سنستخدم Spacer إذا أردنا دفعه أكثر
-
-              // 2. محتوى الرأس القديم (حالة الاتصال والأزرار) في الزاوية العلوية اليمنى
+              // محتوى الرأس مع إضافة زر لعبة البازل
               Row(
-                mainAxisSize: MainAxisSize.min, // مهم جداً
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildStatusChip(
                     isConnected: notesService.isConnected,
                     count: notesService.notes.length,
                   ),
                   SizedBox(width: 15),
+
+                  // زر لعبة البازل الجديد
+                  _buildActionButton(
+                    icon: Icons.games_rounded,
+                    text: isLargeScreen ? 'العب الآن' : 'لعبة',
+                    color: Colors.purple.shade400,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PuzzleGameScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(width: 15),
+
                   _buildActionButton(
                     icon: Icons.refresh_rounded,
                     text: isLargeScreen ? 'مسح اللوحة' : 'مسح',
@@ -171,62 +181,59 @@ class _InteractiveTabletScreenState extends State<InteractiveTabletScreen>
       },
     );
   }
-  // Widget _buildHeader(
-  //   BuildContext context,
-  //   bool isLargeScreen,
-  //   double mainPadding,
-  // ) {
+  // #region Building Widgets
+  // Widget _buildHeader(BuildContext context, bool isLargeScreen) {
   //   return Consumer<NotesService>(
   //     builder: (context, notesService, child) {
-  //       // 💡 تطبيق Padding فقط على اليمين واليسار (وليس الأعلى)
-  //       return Padding(
-  //         padding: EdgeInsets.only(
-  //           // لا يوجد حشوة يسار ليلتصق الشعار بالزاوية
-  //           right: mainPadding, // حشوة طبيعية لليمين
-  //           top: 0.0, // لا يوجد حشوة علوية
-  //           bottom: 10.0, // يمكن إضافة مسافة بسيطة أسفل العنوان
-  //         ),
-  //         child: SizedBox(
-  //           width: double.infinity,
-  //           child: Row(
-  //             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               // 1. الشعار في الزاوية العلوية اليسرى (يلتصق باليسار والأعلى)
-  //               Image.asset(
-  //                 'assets/images/logo.png',
-  //                 height: isLargeScreen ? 80 : 60,
-  //                 width: isLargeScreen ? 400 : 60,
-  //               ),
+  //       // 💡 التعديل: تغليف الـ Row بـ SizedBox لضمان العرض الكامل
+  //       // هذا يضمن أن الـ Row سيتلقى قيود عرض محدودة
+  //       return SizedBox(
+  //         width: double.infinity,
+  //         child: Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             // 1. الشعار في الزاوية العلوية اليسرى
+  //             Image.asset(
+  //               'assets/images/logo.png', // ⚠️ تحقق من المسار
+  //               // 💡 التعديل: زيادة الطول والعرض لملء المساحة العلوية بشكل أكبر في الشاشات الكبيرة
+  //               height: isLargeScreen ? 180 : 40, // زِد هذه القيمة
+  //               width: isLargeScreen ? 350 : 40, // زِد هذه القيمة
+  //               color: Colors.white,
+  //             ),
 
-  //               // 2. محتوى الرأس القديم (حالة الاتصال والأزرار) في اليمين
-  //               Row(
-  //                 mainAxisSize: MainAxisSize.min,
-  //                 children: [
-  //                   _buildStatusChip(
-  //                     isConnected: notesService.isConnected,
-  //                     count: notesService.notes.length,
-  //                   ),
-  //                   SizedBox(width: 15),
-  //                   _buildActionButton(
-  //                     icon: Icons.refresh_rounded,
-  //                     text: isLargeScreen ? 'مسح اللوحة' : 'مسح',
-  //                     color: Colors.red.shade400,
-  //                     onPressed: () {
-  //                       _signaturePadKey.currentState?.clear();
-  //                     },
-  //                   ),
-  //                   SizedBox(width: 15),
-  //                   _buildActionButton(
-  //                     icon: Icons.send_rounded,
-  //                     text: isLargeScreen ? 'إرسال الحلم' : 'إرسال',
-  //                     color: Colors.green.shade400,
-  //                     onPressed: _isSubmitting ? null : _submitNote,
-  //                   ),
-  //                 ],
-  //               ),
-  //             ],
-  //           ),
+  //             // Spacer() لضمان أن العناصر التالية ستكون في أقصى اليمين
+  //             // تم إزالة Spacer() بما أننا نستخدم mainAxisAlignment: MainAxisAlignment.spaceBetween
+  //             // ولكن سنستخدم Spacer إذا أردنا دفعه أكثر
+
+  //             // 2. محتوى الرأس القديم (حالة الاتصال والأزرار) في الزاوية العلوية اليمنى
+  //             Row(
+  //               mainAxisSize: MainAxisSize.min, // مهم جداً
+  //               children: [
+  //                 _buildStatusChip(
+  //                   isConnected: notesService.isConnected,
+  //                   count: notesService.notes.length,
+  //                 ),
+  //                 SizedBox(width: 15),
+  //                 _buildActionButton(
+  //                   icon: Icons.refresh_rounded,
+  //                   text: isLargeScreen ? 'مسح اللوحة' : 'مسح',
+  //                   color: Colors.red.shade400,
+  //                   onPressed: () {
+  //                     _signaturePadKey.currentState?.clear();
+  //                   },
+  //                 ),
+  //                 SizedBox(width: 15),
+  //                 _buildActionButton(
+  //                   icon: Icons.send_rounded,
+  //                   text: isLargeScreen ? 'إرسال الحلم' : 'إرسال',
+  //                   color: Colors.green.shade400,
+  //                   onPressed: _isSubmitting ? null : _submitNote,
+  //                 ),
+  //               ],
+  //             ),
+  //           ],
   //         ),
   //       );
   //     },
@@ -281,16 +288,12 @@ class _InteractiveTabletScreenState extends State<InteractiveTabletScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        // 💡 التعديل هنا: زيادة قيمة الشفافية (Opacity) إلى 0.8
-        // هذا يجعل الخلفية أكثر صلابة وتبرز النص الأبيض
         color: color.withOpacity(0.8),
         borderRadius: BorderRadius.circular(10),
-        // 💡 تعديل الإطار: يمكن استخدام لون أبيض للإطار الخارجي لزيادة الإبراز
         border: Border.all(color: Colors.white, width: 2),
       ),
       child: Material(
         color: Colors.transparent,
-
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(8),
@@ -305,19 +308,15 @@ class _InteractiveTabletScreenState extends State<InteractiveTabletScreen>
                     height: 15,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Colors.white,
-                      ), // نجعل المؤشر أبيض أيضاً
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
                 else
-                  // 💡 التعديل هنا: استخدام اللون الأبيض للأيقونة (الأفضل للتباين)
                   Icon(icon, size: 20, color: Colors.white),
                 SizedBox(width: 5),
                 Text(
                   _isSubmitting && text.contains('إرسال') ? 'جاري...' : text,
                   style: TextStyle(
-                    // 🟢 لون النص الأبيض ممتاز على الخلفية الداكنة الجديدة
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 20,
@@ -330,6 +329,63 @@ class _InteractiveTabletScreenState extends State<InteractiveTabletScreen>
       ),
     );
   }
+  // Widget _buildActionButton({
+  //   required IconData icon,
+  //   required String text,
+  //   required Color color,
+  //   required VoidCallback? onPressed,
+  // }) {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       // 💡 التعديل هنا: زيادة قيمة الشفافية (Opacity) إلى 0.8
+  //       // هذا يجعل الخلفية أكثر صلابة وتبرز النص الأبيض
+  //       color: color.withOpacity(0.8),
+  //       borderRadius: BorderRadius.circular(10),
+  //       // 💡 تعديل الإطار: يمكن استخدام لون أبيض للإطار الخارجي لزيادة الإبراز
+  //       border: Border.all(color: Colors.white, width: 2),
+  //     ),
+  //     child: Material(
+  //       color: Colors.transparent,
+
+  //       child: InkWell(
+  //         onTap: onPressed,
+  //         borderRadius: BorderRadius.circular(8),
+  //         child: Padding(
+  //           padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+  //           child: Row(
+  //             mainAxisSize: MainAxisSize.min,
+  //             children: [
+  //               if (_isSubmitting && text.contains('إرسال'))
+  //                 SizedBox(
+  //                   width: 15,
+  //                   height: 15,
+  //                   child: CircularProgressIndicator(
+  //                     strokeWidth: 2,
+  //                     valueColor: AlwaysStoppedAnimation<Color>(
+  //                       Colors.white,
+  //                     ), // نجعل المؤشر أبيض أيضاً
+  //                   ),
+  //                 )
+  //               else
+  //                 // 💡 التعديل هنا: استخدام اللون الأبيض للأيقونة (الأفضل للتباين)
+  //                 Icon(icon, size: 20, color: Colors.white),
+  //               SizedBox(width: 5),
+  //               Text(
+  //                 _isSubmitting && text.contains('إرسال') ? 'جاري...' : text,
+  //                 style: TextStyle(
+  //                   // 🟢 لون النص الأبيض ممتاز على الخلفية الداكنة الجديدة
+  //                   color: Colors.white,
+  //                   fontWeight: FontWeight.w900,
+  //                   fontSize: 20,
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   // *** دالة التخطيط للشاشة الكبيرة (Large Screen Layout) ***
   Widget _buildLargeScreenLayout() {

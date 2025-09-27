@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
@@ -7,6 +9,7 @@ import 'package:testwhiteboard/screens/display_test.dart';
 import 'package:testwhiteboard/screens/interactive_tablet_screen.dart';
 import 'package:testwhiteboard/services.dart/sercives.dart';
 import 'firebase_options.dart';
+import 'screens/interactive_tablet_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
