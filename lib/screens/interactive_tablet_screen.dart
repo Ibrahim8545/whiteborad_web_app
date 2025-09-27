@@ -60,7 +60,7 @@ class _InteractiveTabletScreenState extends State<InteractiveTabletScreen>
               Positioned.fill(
                 child: Container(
                   // يمكنك تغيير 0.5 إلى قيمة بين 0.3 (خفيف) و 0.7 (داكن)
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withOpacity(0.3),
                 ),
               ),
 
@@ -130,8 +130,8 @@ class _InteractiveTabletScreenState extends State<InteractiveTabletScreen>
               Image.asset(
                 'assets/images/logo.png', // ⚠️ تحقق من المسار
                 // 💡 التعديل: زيادة الطول والعرض لملء المساحة العلوية بشكل أكبر في الشاشات الكبيرة
-                height: isLargeScreen ? 200 : 40, // زِد هذه القيمة
-                width: isLargeScreen ? 300 : 40, // زِد هذه القيمة
+                height: isLargeScreen ? 180 : 40, // زِد هذه القيمة
+                width: isLargeScreen ? 350 : 40, // زِد هذه القيمة
                 color: Colors.white,
               ),
 
