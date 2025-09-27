@@ -92,6 +92,7 @@ class _DisplayScreenState extends State<DisplayScreen>
   }
 
   // ** الدالة المسؤولة عن حساب مواقع التجميع (التداخل على مواقع الـ 95) **
+
   List<Offset> _getTargetPositions(
     Size screenSize,
     int totalNotes,
@@ -113,16 +114,15 @@ class _DisplayScreenState extends State<DisplayScreen>
 
     // مصفوفة تمثل شكل '95' (مواقع الـ Post-it Notes)
     final List<List<int>> pattern95 = [
-      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R0
-      [1, 0, 1, 0, 0, 1, 0, 0, 0, 0], // R1
-      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R2
-      [0, 0, 1, 0, 0, 0, 0, 0, 0, 1], // R3
-      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R4
+      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R0: 9 و 5 (خط علوي كامل)
+      [1, 0, 1, 0, 0, 1, 0, 0, 0, 0], // R1: 9 (يسار و يمين) | 5 (يسار فقط)
+      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R2: 9 و 5 (خط أوسط كامل)
+      [0, 0, 1, 0, 0, 0, 0, 0, 0, 1], // R3: 9 (يمين) | 5 (يمين فقط)
+      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R4: 9 و 5 (خط سفلي كامل)
     ];
 
     final List<Offset> required95Positions = [];
 
-    // إنشاء مواقع شكل '95'
     for (int r = 0; r < pattern95.length; r++) {
       for (int c = 0; c < pattern95[0].length; c++) {
         if (pattern95[r][c] == 1) {
@@ -135,121 +135,45 @@ class _DisplayScreenState extends State<DisplayScreen>
 
     final int count95 = required95Positions.length;
 
-    // حساب الأبعاد الفعلية للشكل الناتج
+    // حساب الأبعاد الفعلية للشكل الناتج لتوسيطه
     final double maxColIndex =
         (pattern95.map((row) => row.lastIndexOf(1)).reduce(math.max))
             .toDouble();
-    final double maxRowIndex = pattern95.length.toDouble() - 1;
     final double actualPatternWidth =
         (maxColIndex + 1) * cardWidth + maxColIndex * gap;
     final double actualPatternHeight =
-        (maxRowIndex + 1) * cardHeight + maxRowIndex * gap;
+        pattern95.length * cardHeight + (pattern95.length - 1) * gap;
 
-    // التوسيط
-    final double offsetX = (screenWidth - actualPatternWidth) / 2;
-    final double offsetY = (screenHeight - actualPatternHeight) / 2;
+    // نقطة الإزاحة لتوسيط الشكل على الشاشة
+    final double offsetX = screenWidth / 2 - actualPatternWidth / 2;
+    final double offsetY = screenHeight / 2 - actualPatternHeight / 2;
 
     final List<Offset> finalPositions = [];
 
     for (int i = 0; i < totalNotes; i++) {
-      final int targetIndex = i % count95; // تكرار مواقع '95' إذا زاد العدد
+      // استخدام باقي القسمة لتكرار المواقع الـ 95 (لتجميع عدد كبير)
+      final int targetIndex = i % count95;
       final Offset basePosition = required95Positions[targetIndex];
 
-      // إضافة إزاحة منظمة (بدلاً من stackingJitter العشوائي)
-      final int layer = i ~/ count95; // عدد التكرارات الكاملة لشكل '95'
-      final double layerOffset = layer * (gap + 2.0); // إزاحة طفيفة لكل طبقة
+      // الإزاحة الأساسية للتوسيط
+      final Offset finalOffset = Offset(
+        basePosition.dx + offsetX,
+        basePosition.dy + offsetY,
+      );
+
+      // إضافة إزاحة بسيطة (Jitter) لتأثير التداخل - تقليل الإزاحة عندما تكون المسافات صغيرة
+      final double stackingJitter = (i % 10).toDouble() * (gap < 5 ? 0.2 : 0.5);
 
       finalPositions.add(
         Offset(
-          basePosition.dx + offsetX + layerOffset, // إزاحة أفقية
-          basePosition.dy + offsetY + layerOffset, // إزاحة رأسية
+          finalOffset.dx + stackingJitter,
+          finalOffset.dy + stackingJitter,
         ),
       );
     }
 
     return finalPositions;
   }
-  // List<Offset> _getTargetPositions(
-  //   Size screenSize,
-  //   int totalNotes,
-  //   double cardWidth,
-  //   double cardHeight,
-  // ) {
-  //   if (totalNotes == 0) return [];
-
-  //   final double screenWidth = screenSize.width;
-  //   final double screenHeight = screenSize.height;
-
-  //   // حساب المسافة الديناميكية
-  //   final double gap = _calculateDynamicGap(
-  //     screenSize,
-  //     totalNotes,
-  //     cardWidth,
-  //     cardHeight,
-  //   );
-
-  //   // مصفوفة تمثل شكل '95' (مواقع الـ Post-it Notes)
-  //   final List<List<int>> pattern95 = [
-  //     [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R0: 9 و 5 (خط علوي كامل)
-  //     [1, 0, 1, 0, 0, 1, 0, 0, 0, 0], // R1: 9 (يسار و يمين) | 5 (يسار فقط)
-  //     [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R2: 9 و 5 (خط أوسط كامل)
-  //     [0, 0, 1, 0, 0, 0, 0, 0, 0, 1], // R3: 9 (يمين) | 5 (يمين فقط)
-  //     [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R4: 9 و 5 (خط سفلي كامل)
-  //   ];
-
-  //   final List<Offset> required95Positions = [];
-
-  //   for (int r = 0; r < pattern95.length; r++) {
-  //     for (int c = 0; c < pattern95[0].length; c++) {
-  //       if (pattern95[r][c] == 1) {
-  //         final double x = c * (cardWidth + gap);
-  //         final double y = r * (cardHeight + gap);
-  //         required95Positions.add(Offset(x, y));
-  //       }
-  //     }
-  //   }
-
-  //   final int count95 = required95Positions.length;
-
-  //   // حساب الأبعاد الفعلية للشكل الناتج لتوسيطه
-  //   final double maxColIndex =
-  //       (pattern95.map((row) => row.lastIndexOf(1)).reduce(math.max))
-  //           .toDouble();
-  //   final double actualPatternWidth =
-  //       (maxColIndex + 1) * cardWidth + maxColIndex * gap;
-  //   final double actualPatternHeight =
-  //       pattern95.length * cardHeight + (pattern95.length - 1) * gap;
-
-  //   // نقطة الإزاحة لتوسيط الشكل على الشاشة
-  //   final double offsetX = screenWidth / 2 - actualPatternWidth / 2;
-  //   final double offsetY = screenHeight / 2 - actualPatternHeight / 2;
-
-  //   final List<Offset> finalPositions = [];
-
-  //   for (int i = 0; i < totalNotes; i++) {
-  //     // استخدام باقي القسمة لتكرار المواقع الـ 95 (لتجميع عدد كبير)
-  //     final int targetIndex = i % count95;
-  //     final Offset basePosition = required95Positions[targetIndex];
-
-  //     // الإزاحة الأساسية للتوسيط
-  //     final Offset finalOffset = Offset(
-  //       basePosition.dx + offsetX,
-  //       basePosition.dy + offsetY,
-  //     );
-
-  //     // إضافة إزاحة بسيطة (Jitter) لتأثير التداخل - تقليل الإزاحة عندما تكون المسافات صغيرة
-  //     final double stackingJitter = (i % 10).toDouble() * (gap < 5 ? 0.2 : 0.5);
-
-  //     finalPositions.add(
-  //       Offset(
-  //         finalOffset.dx + stackingJitter,
-  //         finalOffset.dy + stackingJitter,
-  //       ),
-  //     );
-  //   }
-
-  //   return finalPositions;
-  // }
 
   // دالة مساعدة لضمان موقع بداية مرئي
   Offset _getSafeStartPosition(
