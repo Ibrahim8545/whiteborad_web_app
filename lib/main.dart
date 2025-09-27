@@ -64,7 +64,7 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
         debugShowCheckedModeBanner: false,
-        home: InteractiveTabletScreen(),
+        home: DisplayScreen(),
       ),
     );
   }

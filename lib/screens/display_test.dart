@@ -295,7 +295,7 @@ class _DisplayScreenState extends State<DisplayScreen>
                   if (notesService.notes.isEmpty)
                     Center(
                       child: Text(
-                        'لا توجد كروت لعرضها. اضف كروت جديدة!',
+                        '',
                         style: TextStyle(
                           fontSize: 24,
                           color: Colors.white70,
