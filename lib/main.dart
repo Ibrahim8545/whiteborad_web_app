@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:testwhiteboard/screens/display_screen.dart';
 import 'package:testwhiteboard/screens/display_test.dart';
 import 'package:testwhiteboard/screens/interactive_tablet_screen.dart';
+import 'package:testwhiteboard/screens/puzzle_screen.dart';
 import 'package:testwhiteboard/services.dart/sercives.dart';
 import 'firebase_options.dart';
 import 'screens/interactive_tablet_screen.dart';
@@ -33,23 +34,6 @@ class _MyAppState extends State<MyApp> {
     // _initRemoteConfig();
   }
 
-  // Future<void> _initRemoteConfig() async {
-  //   final remoteConfig = FirebaseRemoteConfig.instance;
-
-  //   await remoteConfig.setConfigSettings(
-  //     RemoteConfigSettings(
-  //       fetchTimeout: const Duration(seconds: 10),
-  //       minimumFetchInterval: const Duration(seconds: 1),
-  //     ),
-  //   );
-
-  //   await remoteConfig.fetchAndActivate();
-
-  //   setState(() {
-  //     isPaid = remoteConfig.getBool("isPaid"); // المفتاح من Firebase Console
-  //   });
-  // }
-
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -64,29 +48,8 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
         debugShowCheckedModeBanner: false,
-        home: DisplayScreen(),
+        home: PuzzleGameScreen(),
       ),
     );
   }
-
-  // Widget _buildHome() {
-  //   if (isPaid == null) {
-  //     // لسه بيحمل
-  //     return const Scaffold(body: Center(child: CircularProgressIndicator()));
-  //   } else if (isPaid == false) {
-  //     // مش دافع → شاشة مقفولة
-  //     return const Scaffold(
-  //       body: Center(
-  //         child: Text(
-  //           "❌ التطبيق غير متاح حالياً\nبرجاء التواصل مع الدعم.",
-  //           textAlign: TextAlign.center,
-  //           style: TextStyle(fontSize: 18),
-  //         ),
-  //       ),
-  //     );
-  //   } else {
-  //     // دافع → يفتح عادي
-  //     return DisplayScreen();
-  //   }
-  // }
 }

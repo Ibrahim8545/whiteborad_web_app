@@ -255,6 +255,22 @@ class _DisplayScreenState extends State<DisplayScreen>
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+
+      appBar: AppBar(
+        title: Text("الكروت"),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.delete_forever),
+            onPressed: () {
+              final notesService = Provider.of<NotesService>(
+                context,
+                listen: false,
+              );
+              _confirmAndDeleteAll(context, notesService);
+            },
+          ),
+        ],
+      ),
       body: Container(
         width: size.width,
         height: size.height,

@@ -19,7 +19,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
   String playerName = '';
   bool gameStarted = false;
   bool gameCompleted = false;
-  bool showWinScreen = false; // إضافة متغير لعرض شاشة الفوز
+  bool showWinScreen = false;
   List<PuzzlePiece> puzzlePieces = [];
   DateTime? gameStartTime;
   Timer? gameTimer;
@@ -256,6 +256,38 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
     }
   }
 
+  // ⭐ الدالة الجديدة للتحقق من النتيجة عند الضغط على الزر
+  void _checkResult() {
+    bool isCompleted = _checkIfCompleted();
+
+    if (isCompleted) {
+      // النتيجة صحيحة - إظهار شاشة الفوز
+      _endGame(true);
+    } else {
+      // النتيجة خاطئة - إظهار رسالة المحاولة مرة أخرى
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 10),
+              Text('جرب مرة أخرى! البازل لم يكتمل بعد'),
+            ],
+          ),
+          backgroundColor: Colors.orange.shade600,
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+
+      // إضافة تأثير اهتزاز خفيف للتغذية الراجعة
+      HapticFeedback.vibrate();
+    }
+  }
+
   void _showCompletedImageOnDisplay() {
     // إظهار الصورة والاسم على شاشة العرض
     final notesService = Provider.of<NotesService>(context, listen: false);
@@ -276,14 +308,8 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
     return true;
   }
 
-  void _onPieceSwapped() {
-    if (_checkIfCompleted()) {
-      setState(() {
-        gameCompleted = true;
-      });
-      _endGame(true);
-    }
-  }
+  // حذف الدالة القديمة _onPieceSwapped لأننا لن نعود نحتاجها
+  // void _onPieceSwapped() { ... }
 
   // دالة للعودة لشاشة البداية وبدء لعبة جديدة
   void _resetToStart() {
@@ -546,34 +572,27 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
                 child: CircularProgressIndicator(),
               ),
 
-            // ----------------------------------------------------
-            // 🌟 الإضافة الجديدة: زرار الرجوع
-            // ----------------------------------------------------
-            SizedBox(height: 20), // مسافة بين الزرين
-            TextButton.icon(
-              onPressed: () {
-                // تحتاج إلى التأكد من أن InteractiveTabletScreen موجودة ومستوردة
-                // إذا لم تكن مستوردة، قم بإضافة: import 'package:your_project_path/interactive_tablet_screen.dart';
-                // افترضت أن الشاشة الجديدة موجودة واسمها InteractiveTabletScreen
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (context) => InteractiveTabletScreen(),
-                  ),
-                  (route) => false,
-                );
-              },
-              icon: Icon(Icons.arrow_back, color: Colors.blue.shade600),
-              label: Text(
-                'العودة إلى الشاشة الرئيسية',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.blue.shade700,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-
-            // ----------------------------------------------------
+            // زرار الرجوع
+            // SizedBox(height: 20),
+            // TextButton.icon(
+            //   onPressed: () {
+            //     Navigator.of(context).pushAndRemoveUntil(
+            //       MaterialPageRoute(
+            //         builder: (context) => InteractiveTabletScreen(),
+            //       ),
+            //       (route) => false,
+            //     );
+            //   },
+            //   icon: Icon(Icons.arrow_back, color: Colors.blue.shade600),
+            //   label: Text(
+            //     'العودة إلى الشاشة الرئيسية',
+            //     style: TextStyle(
+            //       fontSize: 16,
+            //       color: Colors.blue.shade700,
+            //       fontWeight: FontWeight.w600,
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),
@@ -666,9 +685,38 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
           ),
         ),
 
-        // أزرار التحكم
+        // ⭐ الزر الجديد للتحقق من النتيجة
         Container(
-          padding: EdgeInsets.all(20),
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: ElevatedButton.icon(
+            onPressed: _checkResult,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple.shade600,
+              padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+              elevation: 5,
+            ),
+            icon: Icon(
+              Icons.check_circle_outline,
+              color: Colors.white,
+              size: 24,
+            ),
+            label: Text(
+              'تحقق من النتيجة',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+
+        // أزرار التحكم الأخرى
+        Container(
+          padding: EdgeInsets.only(left: 20, right: 20, bottom: 20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -676,12 +724,12 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
                 onPressed: _resetToStart,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                 ),
-                icon: Icon(Icons.exit_to_app, color: Colors.white),
+                icon: Icon(Icons.exit_to_app, color: Colors.white, size: 18),
                 label: Text(
-                  'إنهاء اللعبة',
-                  style: TextStyle(color: Colors.white),
+                  'إنهاء',
+                  style: TextStyle(color: Colors.white, fontSize: 14),
                 ),
               ),
               ElevatedButton.icon(
@@ -691,22 +739,27 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                 ),
-                icon: Icon(Icons.shuffle, color: Colors.white),
-                label: Text('خلط القطع', style: TextStyle(color: Colors.white)),
+                icon: Icon(Icons.shuffle, color: Colors.white, size: 18),
+                label: Text(
+                  'خلط',
+                  style: TextStyle(color: Colors.white, fontSize: 14),
+                ),
               ),
               ElevatedButton.icon(
                 onPressed: () {
-                  // إظهار الصورة الأصلية لثواني قليلة
                   _showHint();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                 ),
-                icon: Icon(Icons.help_outline, color: Colors.white),
-                label: Text('مساعدة', style: TextStyle(color: Colors.white)),
+                icon: Icon(Icons.help_outline, color: Colors.white, size: 18),
+                label: Text(
+                  'مساعدة',
+                  style: TextStyle(color: Colors.white, fontSize: 14),
+                ),
               ),
             ],
           ),
@@ -741,7 +794,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
     );
 
     // أغلق التلميح تلقائياً بعد 3 ثوانٍ
-    Timer(Duration(seconds: 1), () {
+    Timer(Duration(seconds: 3), () {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
@@ -887,7 +940,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen> {
     piece2.currentCol = tempCol;
 
     setState(() {});
-    _onPieceSwapped();
+    // حذف استدعاء _onPieceSwapped() لأننا لا نريد التحقق التلقائي
   }
 }
 
