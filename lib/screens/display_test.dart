@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-// تأكد من صحة مسارات الاستيراد لديك:
 import 'package:testwhiteboard/services.dart/sercives.dart';
 import '../models/note_model.dart';
 
@@ -20,6 +19,9 @@ class _DisplayScreenState extends State<DisplayScreen>
   late AnimationController _puzzleController;
   late Animation<double> _puzzleAnimation;
   bool _isAssembling = false;
+
+  final List<Offset> _scatteredStartPositions = [];
+  final math.Random _random = math.Random();
 
   @override
   void initState() {
@@ -43,9 +45,68 @@ class _DisplayScreenState extends State<DisplayScreen>
       parent: _puzzleController,
       curve: Curves.easeInOutQuad,
     );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final notesService = Provider.of<NotesService>(context, listen: false);
+      _generateScatteredPositions(notesService.notes.length);
+      notesService.addListener(_onNotesChanged);
+    });
   }
 
-  // ** دالة حساب المسافة الديناميكية حسب عدد الكروت **
+  @override
+  void dispose() {
+    final notesService = Provider.of<NotesService>(context, listen: false);
+    notesService.removeListener(_onNotesChanged);
+    _backgroundController.dispose();
+    _puzzleController.dispose();
+    super.dispose();
+  }
+
+  void _generateScatteredPositions(int count) {
+    _scatteredStartPositions.clear();
+    if (count == 0) return;
+
+    final size = MediaQuery.of(context).size;
+    const double CARD_SCALE_FACTOR_W = 0.08;
+    const double CARD_SCALE_FACTOR_H = 0.12;
+    final double cardWidth = size.width * CARD_SCALE_FACTOR_W;
+    final double cardHeight = size.height * CARD_SCALE_FACTOR_H;
+
+    final double center_x = size.width / 2 - cardWidth / 2;
+    final double center_y = size.height / 2 - cardHeight / 2;
+
+    final double scatterRadiusX = size.width * 0.15;
+    final double scatterRadiusY = size.height * 0.15;
+
+    for (int i = 0; i < count; i++) {
+      final double randomX =
+          center_x + (_random.nextDouble() * 2 - 1) * scatterRadiusX;
+      final double randomY =
+          center_y + (_random.nextDouble() * 2 - 1) * scatterRadiusY;
+
+      final double safeX = math.max(
+        0,
+        math.min(randomX, size.width - cardWidth),
+      );
+      final double safeY = math.max(
+        kToolbarHeight,
+        math.min(randomY, size.height - cardHeight),
+      );
+
+      _scatteredStartPositions.add(Offset(safeX, safeY));
+    }
+  }
+
+  void _onNotesChanged() {
+    final notesService = Provider.of<NotesService>(context, listen: false);
+    if (_scatteredStartPositions.length != notesService.notes.length) {
+      _generateScatteredPositions(notesService.notes.length);
+      if (!_isAssembling) {
+        _puzzleController.reverse(from: 1.0);
+      }
+    }
+  }
+
   double _calculateDynamicGap(
     Size screenSize,
     int totalNotes,
@@ -55,17 +116,11 @@ class _DisplayScreenState extends State<DisplayScreen>
     if (totalNotes == 0) return 10.0;
 
     final double screenWidth = screenSize.width;
-
-    // حساب المسافة المطلوبة لشكل '95' (10 أعمدة × 5 صفوف)
     const int maxColumns = 10;
     const int maxRows = 5;
+    final double availableWidth = screenWidth * 0.8;
+    final double availableHeight = screenSize.height * 0.6;
 
-    // المساحة المتاحة للشكل
-    final double availableWidth = screenWidth * 0.8; // 80% من عرض الشاشة
-    final double availableHeight =
-        screenSize.height * 0.6; // 60% من ارتفاع الشاشة
-
-    // حساب المسافة المطلوبة بناءً على المساحة المتاحة
     final double maxWidthForCards = maxColumns * cardWidth;
     final double maxHeightForCards = maxRows * cardHeight;
 
@@ -74,24 +129,18 @@ class _DisplayScreenState extends State<DisplayScreen>
     final double gapHeight =
         (availableHeight - maxHeightForCards) / (maxRows - 1);
 
-    // اختيار أصغر مسافة لضمان ظهور الشكل كاملاً
     double calculatedGap = math.min(gapWidth, gapHeight);
+    calculatedGap = math.max(2.0, calculatedGap);
+    calculatedGap = math.min(20.0, calculatedGap);
 
-    // تطبيق حد أدنى وأقصى للمسافة
-    calculatedGap = math.max(2.0, calculatedGap); // حد أدنى 2 بكسل
-    calculatedGap = math.min(20.0, calculatedGap); // حد أقصى 20 بكسل
-
-    // تقليل المسافة تدريجياً كلما زاد عدد الكروت
     if (totalNotes > 30) {
-      calculatedGap *= 0.7; // تقليل بنسبة 30%
+      calculatedGap *= 0.7;
     } else if (totalNotes > 20) {
-      calculatedGap *= 0.85; // تقليل بنسبة 15%
+      calculatedGap *= 0.85;
     }
 
     return calculatedGap;
   }
-
-  // ** الدالة المسؤولة عن حساب مواقع التجميع (التداخل على مواقع الـ 95) **
 
   List<Offset> _getTargetPositions(
     Size screenSize,
@@ -101,10 +150,6 @@ class _DisplayScreenState extends State<DisplayScreen>
   ) {
     if (totalNotes == 0) return [];
 
-    final double screenWidth = screenSize.width;
-    final double screenHeight = screenSize.height;
-
-    // حساب المسافة الديناميكية
     final double gap = _calculateDynamicGap(
       screenSize,
       totalNotes,
@@ -112,17 +157,15 @@ class _DisplayScreenState extends State<DisplayScreen>
       cardHeight,
     );
 
-    // مصفوفة تمثل شكل '95' (مواقع الـ Post-it Notes)
     final List<List<int>> pattern95 = [
-      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R0: 9 و 5 (خط علوي كامل)
-      [1, 0, 1, 0, 0, 1, 0, 0, 0, 0], // R1: 9 (يسار و يمين) | 5 (يسار فقط)
-      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R2: 9 و 5 (خط أوسط كامل)
-      [0, 0, 1, 0, 0, 0, 0, 0, 0, 1], // R3: 9 (يمين) | 5 (يمين فقط)
-      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R4: 9 و 5 (خط سفلي كامل)
+      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1],
+      [1, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1],
+      [0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+      [1, 1, 1, 0, 0, 1, 1, 1, 1, 1],
     ];
 
     final List<Offset> required95Positions = [];
-
     for (int r = 0; r < pattern95.length; r++) {
       for (int c = 0; c < pattern95[0].length; c++) {
         if (pattern95[r][c] == 1) {
@@ -134,8 +177,6 @@ class _DisplayScreenState extends State<DisplayScreen>
     }
 
     final int count95 = required95Positions.length;
-
-    // حساب الأبعاد الفعلية للشكل الناتج لتوسيطه
     final double maxColIndex =
         (pattern95.map((row) => row.lastIndexOf(1)).reduce(math.max))
             .toDouble();
@@ -144,24 +185,18 @@ class _DisplayScreenState extends State<DisplayScreen>
     final double actualPatternHeight =
         pattern95.length * cardHeight + (pattern95.length - 1) * gap;
 
-    // نقطة الإزاحة لتوسيط الشكل على الشاشة
-    final double offsetX = screenWidth / 2 - actualPatternWidth / 2;
-    final double offsetY = screenHeight / 2 - actualPatternHeight / 2;
+    final double offsetX = screenSize.width / 2 - actualPatternWidth / 2;
+    final double offsetY = screenSize.height / 2 - actualPatternHeight / 2;
 
     final List<Offset> finalPositions = [];
-
     for (int i = 0; i < totalNotes; i++) {
-      // استخدام باقي القسمة لتكرار المواقع الـ 95 (لتجميع عدد كبير)
       final int targetIndex = i % count95;
       final Offset basePosition = required95Positions[targetIndex];
 
-      // الإزاحة الأساسية للتوسيط
       final Offset finalOffset = Offset(
         basePosition.dx + offsetX,
         basePosition.dy + offsetY,
       );
-
-      // إضافة إزاحة بسيطة (Jitter) لتأثير التداخل - تقليل الإزاحة عندما تكون المسافات صغيرة
       final double stackingJitter = (i % 10).toDouble() * (gap < 5 ? 0.2 : 0.5);
 
       finalPositions.add(
@@ -175,72 +210,93 @@ class _DisplayScreenState extends State<DisplayScreen>
     return finalPositions;
   }
 
-  // دالة مساعدة لضمان موقع بداية مرئي
-  Offset _getSafeStartPosition(
-    NoteModel note,
-    double screenWidth,
-    double screenHeight,
-    double cardWidth,
-    double cardHeight,
-  ) {
-    double x = note.x;
-    double y = note.y;
-
-    const double safetyMargin = 30.0;
-
-    x = math.max(
-      safetyMargin,
-      math.min(x, screenWidth - cardWidth - safetyMargin),
+  void _confirmAndDeleteAll(BuildContext context, NotesService notesService) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('تأكيد المسح'),
+        content: Text(
+          'هل أنت متأكد من أنك تريد مسح جميع الكروت نهائيًا؟ سيتم حذفها من قاعدة البيانات.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              notesService.clearAllNotes();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('تم مسح جميع الكروت بنجاح.')),
+              );
+            },
+            child: Text('مسح الكل', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
-    y = math.max(
-      kToolbarHeight + safetyMargin,
-      math.min(y, screenHeight - cardHeight - safetyMargin),
-    );
-
-    return Offset(x, y);
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-
     const double CARD_SCALE_FACTOR_W = 0.08;
     const double CARD_SCALE_FACTOR_H = 0.12;
-
     final double cardWidth = size.width * CARD_SCALE_FACTOR_W;
     final double cardHeight = size.height * CARD_SCALE_FACTOR_H;
+    final centerPoint = Offset(
+      size.width / 2 - cardWidth / 2,
+      size.height / 2 - cardHeight / 2,
+    );
 
     return Scaffold(
-      backgroundColor: Colors.transparent, // الخلفية شفافة لرؤية صورة الـ body
-      // *** إضافة صورة الخلفية هنا ***
+      backgroundColor: Colors.transparent,
+      // appBar: AppBar(
+      //   backgroundColor: Colors.black.withOpacity(0.5),
+      //   title: Text('شاشة العرض', style: TextStyle(color: Colors.white70)),
+      //   actions: [
+      //     Consumer<NotesService>(
+      //       builder: (context, notesService, child) {
+      //         if (notesService.notes.isEmpty) return SizedBox.shrink();
+      //         return TextButton.icon(
+      //           icon: Icon(Icons.delete_sweep, color: Colors.redAccent),
+      //           label: Text(
+      //             'مسح الكل',
+      //             style: TextStyle(
+      //               color: Colors.redAccent,
+      //               fontWeight: FontWeight.bold,
+      //             ),
+      //           ),
+      //           onPressed: () => _confirmAndDeleteAll(context, notesService),
+      //         );
+      //       },
+      //     ),
+      //   ],
+      // ),
       body: Container(
         width: size.width,
         height: size.height,
         decoration: BoxDecoration(
-          color: Colors.black, // لون احتياطي
+          color: Colors.black,
           image: DecorationImage(
-            // ** تأكد من استخدام المسار الصحيح للصورة في مجلد assets/images **
             image: AssetImage(
               'assets/images/WhatsApp Image 2025-09-27 at 7.44.50 AM (1).jpeg',
             ),
             fit: BoxFit.fill,
-            // تعتيم خفيف لضمان وضوح الكروت الصفراء فوق الخلفية الملونة
             colorFilter: ColorFilter.mode(
               Colors.black.withOpacity(0.3),
               BlendMode.darken,
             ),
           ),
         ),
-
         child: Consumer<NotesService>(
           builder: (context, notesService, child) {
             final notes = notesService.notes;
-
             if (notes.isEmpty) {
               return Center(
                 child: Text(
-                  '',
-
+                  'لا توجد كروت لعرضها. اضف كروت جديدة!',
                   style: TextStyle(
                     fontSize: 24,
                     color: Colors.white70,
@@ -259,34 +315,34 @@ class _DisplayScreenState extends State<DisplayScreen>
 
             return Stack(
               children: [
-                // عرض معلومات المسافة الحالية (اختياري - يمكن حذفه)
-
-                // الكروت
                 ...notes.asMap().entries.map((entry) {
                   final index = entry.key;
                   final note = entry.value;
-
-                  final startOffset = _getSafeStartPosition(
-                    note,
-                    size.width,
-                    size.height,
-                    cardWidth,
-                    cardHeight,
-                  );
-                  final endOffset = targetPositions[index];
+                  final Offset endOffset = targetPositions[index];
+                  final Offset scatteredPosition =
+                      _scatteredStartPositions.length > index
+                      ? _scatteredStartPositions[index]
+                      : centerPoint;
+                  final Offset startAnimationPoint = _isAssembling
+                      ? scatteredPosition
+                      : scatteredPosition;
+                  final Offset targetAnimationPoint = _isAssembling
+                      ? endOffset
+                      : scatteredPosition;
 
                   return AnimatedBuilder(
                     animation: _puzzleAnimation,
                     builder: (context, child) {
                       final currentX =
-                          startOffset.dx +
+                          startAnimationPoint.dx +
                           (_puzzleAnimation.value *
-                              (endOffset.dx - startOffset.dx));
+                              (targetAnimationPoint.dx -
+                                  startAnimationPoint.dx));
                       final currentY =
-                          startOffset.dy +
+                          startAnimationPoint.dy +
                           (_puzzleAnimation.value *
-                              (endOffset.dy - startOffset.dy));
-
+                              (targetAnimationPoint.dy -
+                                  startAnimationPoint.dy));
                       return Positioned(
                         left: currentX,
                         top: currentY,
@@ -308,11 +364,9 @@ class _DisplayScreenState extends State<DisplayScreen>
           },
         ),
       ),
-
       floatingActionButton: Consumer<NotesService>(
         builder: (context, notesService, child) {
           if (notesService.notes.isEmpty) return SizedBox.shrink();
-
           return FloatingActionButton.extended(
             onPressed: () {
               setState(() {
@@ -320,7 +374,8 @@ class _DisplayScreenState extends State<DisplayScreen>
                 if (_isAssembling) {
                   _puzzleController.forward(from: 0.0);
                 } else {
-                  _puzzleController.reverse();
+                  _generateScatteredPositions(notesService.notes.length);
+                  _puzzleController.reverse(from: 1.0);
                 }
               });
             },
@@ -336,7 +391,6 @@ class _DisplayScreenState extends State<DisplayScreen>
     );
   }
 
-  // ** الكود الخاص ببناء الـ Widget لكل ملاحظة (بتأثير ورقة الملاحظات) **
   Widget _buildNoteWidget(
     BuildContext context,
     NoteModel note,
@@ -346,15 +400,13 @@ class _DisplayScreenState extends State<DisplayScreen>
     int index,
   ) {
     final Color contentColor = note.color;
-
     return Transform.rotate(
-      // ميلان خفيف وعشوائي يعتمد على الـ index
       angle: (index % 10) * 0.01 - 0.05,
       child: Container(
         width: cardWidth,
         height: cardHeight,
         child: Material(
-          color: Colors.yellow.shade500, // لون أصفر داكن لورقة الملاحظات
+          color: Colors.yellow.shade500,
           elevation: 8,
           borderRadius: BorderRadius.circular(5),
           child: InkWell(
@@ -371,7 +423,6 @@ class _DisplayScreenState extends State<DisplayScreen>
                           width: double.infinity,
                           height: double.infinity,
                           decoration: BoxDecoration(
-                            // الخلفية شفافة لظهور اللون الأصفر تحت الرسم
                             color: Colors.transparent,
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -381,8 +432,7 @@ class _DisplayScreenState extends State<DisplayScreen>
                                 ? _buildImageDisplay(note.imageData)
                                 : DisplaySignature(
                                     drawingPoints: note.drawingPoints,
-                                    strokeColor:
-                                        contentColor, // تمرير لون الرسم
+                                    strokeColor: contentColor,
                                   ),
                           ),
                         ),
@@ -400,37 +450,27 @@ class _DisplayScreenState extends State<DisplayScreen>
   }
 
   Widget _buildImageDisplay(String? imageData) {
-    if (imageData == null || imageData.isEmpty) {
+    if (imageData == null || imageData.isEmpty)
       return Center(
         child: Text(
           'لا يمكن عرض الصورة',
           style: TextStyle(color: Colors.grey, fontSize: 10),
         ),
       );
-    }
     try {
       final bytes = base64Decode(imageData);
-      return Container(
-        width: double.infinity,
-        height: double.infinity,
-        child: Image.memory(
-          bytes,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error, color: Colors.red, size: 30),
-                  SizedBox(height: 4),
-                  Text(
-                    'خطأ',
-                    style: TextStyle(color: Colors.red, fontSize: 10),
-                  ),
-                ],
-              ),
-            );
-          },
+      return Image.memory(
+        bytes,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error, color: Colors.red, size: 30),
+              SizedBox(height: 4),
+              Text('خطأ', style: TextStyle(color: Colors.red, fontSize: 10)),
+            ],
+          ),
         ),
       );
     } catch (e) {
@@ -446,18 +486,7 @@ class _DisplayScreenState extends State<DisplayScreen>
       );
     }
   }
-
-  @override
-  void dispose() {
-    _backgroundController.dispose();
-    _puzzleController.dispose();
-    super.dispose();
-  }
 }
-
-// ----------------------------------------------------------------------
-// كلاسات عرض التوقيع
-// ----------------------------------------------------------------------
 
 class DisplaySignature extends StatelessWidget {
   final List<List<Map<String, double>>> drawingPoints;
@@ -487,15 +516,14 @@ class SignaturePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 4.0
       ..style = PaintingStyle.stroke;
-
     final fillPaint = Paint()
       ..color = strokeColor
       ..style = PaintingStyle.fill;
 
-    double minX = double.infinity;
-    double minY = double.infinity;
-    double maxX = double.negativeInfinity;
-    double maxY = double.negativeInfinity;
+    double minX = double.infinity,
+        minY = double.infinity,
+        maxX = double.negativeInfinity,
+        maxY = double.negativeInfinity;
     int pointCount = 0;
 
     for (final stroke in drawingPoints) {
@@ -512,13 +540,10 @@ class SignaturePainter extends CustomPainter {
       }
     }
 
-    if (pointCount == 0 || !minX.isFinite || !maxX.isFinite) {
-      return;
-    }
+    if (pointCount == 0 || !minX.isFinite || !maxX.isFinite) return;
 
     final drawingWidth = maxX - minX;
     final drawingHeight = maxY - minY;
-
     final margin = 20.0;
     final availableWidth = size.width - (2 * margin);
     final availableHeight = size.height - (2 * margin);
@@ -537,35 +562,25 @@ class SignaturePainter extends CustomPainter {
 
     for (final stroke in drawingPoints) {
       if (stroke.isEmpty) continue;
-
       final path = Path();
       final validPoints = <Offset>[];
-
       for (final point in stroke) {
         final x = point['x']?.toDouble();
         final y = point['y']?.toDouble();
-        if (x != null && y != null && x.isFinite && y.isFinite) {
-          final scaledPoint = Offset(
-            (x * scale) + offsetX,
-            (y * scale) + offsetY,
-          );
-          validPoints.add(scaledPoint);
-        }
+        if (x != null && y != null && x.isFinite && y.isFinite)
+          validPoints.add(Offset((x * scale) + offsetX, (y * scale) + offsetY));
       }
-
       if (validPoints.isEmpty) continue;
 
       if (validPoints.length == 1) {
         canvas.drawCircle(validPoints[0], 3.0, fillPaint);
       } else {
         path.moveTo(validPoints[0].dx, validPoints[0].dy);
-        for (int i = 1; i < validPoints.length; i++) {
+        for (int i = 1; i < validPoints.length; i++)
           path.lineTo(validPoints[i].dx, validPoints[i].dy);
-        }
         canvas.drawPath(path, paint);
-        for (final point in validPoints) {
+        for (final point in validPoints)
           canvas.drawCircle(point, 2.0, fillPaint);
-        }
       }
     }
   }
@@ -576,6 +591,7 @@ class SignaturePainter extends CustomPainter {
         oldDelegate.strokeColor != strokeColor;
   }
 }
+
 // import 'dart:convert';
 // import 'dart:math' as math;
 // import 'package:flutter/material.dart';
@@ -623,7 +639,54 @@ class SignaturePainter extends CustomPainter {
 //     );
 //   }
 
+//   // ** دالة حساب المسافة الديناميكية حسب عدد الكروت **
+//   double _calculateDynamicGap(
+//     Size screenSize,
+//     int totalNotes,
+//     double cardWidth,
+//     double cardHeight,
+//   ) {
+//     if (totalNotes == 0) return 10.0;
+
+//     final double screenWidth = screenSize.width;
+
+//     // حساب المسافة المطلوبة لشكل '95' (10 أعمدة × 5 صفوف)
+//     const int maxColumns = 10;
+//     const int maxRows = 5;
+
+//     // المساحة المتاحة للشكل
+//     final double availableWidth = screenWidth * 0.8; // 80% من عرض الشاشة
+//     final double availableHeight =
+//         screenSize.height * 0.6; // 60% من ارتفاع الشاشة
+
+//     // حساب المسافة المطلوبة بناءً على المساحة المتاحة
+//     final double maxWidthForCards = maxColumns * cardWidth;
+//     final double maxHeightForCards = maxRows * cardHeight;
+
+//     final double gapWidth =
+//         (availableWidth - maxWidthForCards) / (maxColumns - 1);
+//     final double gapHeight =
+//         (availableHeight - maxHeightForCards) / (maxRows - 1);
+
+//     // اختيار أصغر مسافة لضمان ظهور الشكل كاملاً
+//     double calculatedGap = math.min(gapWidth, gapHeight);
+
+//     // تطبيق حد أدنى وأقصى للمسافة
+//     calculatedGap = math.max(2.0, calculatedGap); // حد أدنى 2 بكسل
+//     calculatedGap = math.min(20.0, calculatedGap); // حد أقصى 20 بكسل
+
+//     // تقليل المسافة تدريجياً كلما زاد عدد الكروت
+//     if (totalNotes > 30) {
+//       calculatedGap *= 0.7; // تقليل بنسبة 30%
+//     } else if (totalNotes > 20) {
+//       calculatedGap *= 0.85; // تقليل بنسبة 15%
+//     }
+
+//     return calculatedGap;
+//   }
+
 //   // ** الدالة المسؤولة عن حساب مواقع التجميع (التداخل على مواقع الـ 95) **
+
 //   List<Offset> _getTargetPositions(
 //     Size screenSize,
 //     int totalNotes,
@@ -635,32 +698,22 @@ class SignaturePainter extends CustomPainter {
 //     final double screenWidth = screenSize.width;
 //     final double screenHeight = screenSize.height;
 
-//     const double GAP_SCALE_FACTOR = 0.005;
-//     final double gap = screenWidth * GAP_SCALE_FACTOR;
+//     // حساب المسافة الديناميكية
+//     final double gap = _calculateDynamicGap(
+//       screenSize,
+//       totalNotes,
+//       cardWidth,
+//       cardHeight,
+//     );
 
 //     // مصفوفة تمثل شكل '95' (مواقع الـ Post-it Notes)
-//     // ----------------------------------------------------------------------
-//     // تم تعديل هذا الجزء لتصحيح شكل الرقم 5
-//     // ----------------------------------------------------------------------
 //     final List<List<int>> pattern95 = [
 //       [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R0: 9 و 5 (خط علوي كامل)
 //       [1, 0, 1, 0, 0, 1, 0, 0, 0, 0], // R1: 9 (يسار و يمين) | 5 (يسار فقط)
-//       [
-//         1,
-//         1,
-//         1,
-//         0,
-//         0,
-//         1,
-//         1,
-//         1,
-//         1,
-//         1,
-//       ], // R2: 9 و 5 (خط أوسط كامل) **(تم التعديل)**
+//       [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R2: 9 و 5 (خط أوسط كامل)
 //       [0, 0, 1, 0, 0, 0, 0, 0, 0, 1], // R3: 9 (يمين) | 5 (يمين فقط)
 //       [1, 1, 1, 0, 0, 1, 1, 1, 1, 1], // R4: 9 و 5 (خط سفلي كامل)
 //     ];
-//     // ----------------------------------------------------------------------
 
 //     final List<Offset> required95Positions = [];
 
@@ -702,8 +755,8 @@ class SignaturePainter extends CustomPainter {
 //         basePosition.dy + offsetY,
 //       );
 
-//       // إضافة إزاحة بسيطة (Jitter) لتأثير التداخل
-//       final double stackingJitter = (i % 10).toDouble() * 0.5;
+//       // إضافة إزاحة بسيطة (Jitter) لتأثير التداخل - تقليل الإزاحة عندما تكون المسافات صغيرة
+//       final double stackingJitter = (i % 10).toDouble() * (gap < 5 ? 0.2 : 0.5);
 
 //       finalPositions.add(
 //         Offset(
@@ -741,6 +794,35 @@ class SignaturePainter extends CustomPainter {
 //     return Offset(x, y);
 //   }
 
+//   void _confirmAndDeleteAll(BuildContext context, NotesService notesService) {
+//     showDialog(
+//       context: context,
+//       builder: (context) => AlertDialog(
+//         title: Text('تأكيد المسح'),
+//         content: Text(
+//           'هل أنت متأكد من أنك تريد مسح جميع الكروت نهائيًا؟ سيتم حذفها من قاعدة البيانات.',
+//         ),
+//         actions: [
+//           TextButton(
+//             onPressed: () => Navigator.of(context).pop(),
+//             child: Text('إلغاء'),
+//           ),
+//           TextButton(
+//             onPressed: () {
+//               Navigator.of(context).pop();
+//               // استدعاء دالة الحذف الجماعي من NotesService
+//               notesService.clearAllNotes();
+//               ScaffoldMessenger.of(context).showSnackBar(
+//                 SnackBar(content: Text('تم مسح جميع الكروت بنجاح.')),
+//               );
+//             },
+//             child: Text('مسح الكل', style: TextStyle(color: Colors.red)),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+
 //   @override
 //   Widget build(BuildContext context) {
 //     final size = MediaQuery.of(context).size;
@@ -751,9 +833,40 @@ class SignaturePainter extends CustomPainter {
 //     final double cardWidth = size.width * CARD_SCALE_FACTOR_W;
 //     final double cardHeight = size.height * CARD_SCALE_FACTOR_H;
 
+//     // ** [تعديل] حساب نقطة مركز الشاشة - هذه هي نقطة التجميع المبدئية **
+//     final centerPoint = Offset(
+//       size.width / 2 - cardWidth / 2,
+//       size.height / 2 - cardHeight / 2,
+//     );
+
 //     return Scaffold(
 //       backgroundColor: Colors.transparent, // الخلفية شفافة لرؤية صورة الـ body
 //       // *** إضافة صورة الخلفية هنا ***
+//       appBar: AppBar(
+//         backgroundColor: Colors.black.withOpacity(0.5),
+//         title: Text('شاشة العرض', style: TextStyle(color: Colors.white70)),
+//         actions: [
+//           Consumer<NotesService>(
+//             builder: (context, notesService, child) {
+//               // إخفاء الزر إذا لم تكن هناك ملاحظات
+//               if (notesService.notes.isEmpty) return SizedBox.shrink();
+
+//               return TextButton.icon(
+//                 icon: Icon(Icons.delete_sweep, color: Colors.redAccent),
+//                 label: Text(
+//                   'مسح الكل',
+//                   style: TextStyle(
+//                     color: Colors.redAccent,
+//                     fontWeight: FontWeight.bold,
+//                   ),
+//                 ),
+//                 // استدعاء دالة التأكيد والحذف
+//                 onPressed: () => _confirmAndDeleteAll(context, notesService),
+//               );
+//             },
+//           ),
+//         ],
+//       ),
 //       body: Container(
 //         width: size.width,
 //         height: size.height,
@@ -768,7 +881,7 @@ class SignaturePainter extends CustomPainter {
 //             // تعتيم خفيف لضمان وضوح الكروت الصفراء فوق الخلفية الملونة
 //             colorFilter: ColorFilter.mode(
 //               Colors.black.withOpacity(0.3),
-//               BlendMode.darken,
+//               BlendMode.lighten,
 //             ),
 //           ),
 //         ),
@@ -780,7 +893,8 @@ class SignaturePainter extends CustomPainter {
 //             if (notes.isEmpty) {
 //               return Center(
 //                 child: Text(
-//                   'لا توجد ملاحظات حالياً',
+//                   '',
+
 //                   style: TextStyle(
 //                     fontSize: 24,
 //                     color: Colors.white70,
@@ -798,47 +912,57 @@ class SignaturePainter extends CustomPainter {
 //             );
 
 //             return Stack(
-//               children: notes.asMap().entries.map((entry) {
-//                 final index = entry.key;
-//                 final note = entry.value;
+//               children: [
+//                 // عرض معلومات المسافة الحالية (اختياري - يمكن حذفه)
 
-//                 final startOffset = _getSafeStartPosition(
-//                   note,
-//                   size.width,
-//                   size.height,
-//                   cardWidth,
-//                   cardHeight,
-//                 );
-//                 final endOffset = targetPositions[index];
+//                 // الكروت
+//                 ...notes.asMap().entries.map((entry) {
+//                   final index = entry.key;
+//                   final note = entry.value;
 
-//                 return AnimatedBuilder(
-//                   animation: _puzzleAnimation,
-//                   builder: (context, child) {
-//                     final currentX =
-//                         startOffset.dx +
-//                         (_puzzleAnimation.value *
-//                             (endOffset.dx - startOffset.dx));
-//                     final currentY =
-//                         startOffset.dy +
-//                         (_puzzleAnimation.value *
-//                             (endOffset.dy - startOffset.dy));
-
-//                     return Positioned(
-//                       left: currentX,
-//                       top: currentY,
-//                       child: child!,
-//                     );
-//                   },
-//                   child: _buildNoteWidget(
-//                     context,
+//                   final startOffset = _getSafeStartPosition(
 //                     note,
-//                     notesService,
+//                     size.width,
+//                     size.height,
 //                     cardWidth,
 //                     cardHeight,
-//                     index,
-//                   ),
-//                 );
-//               }).toList(),
+//                   );
+
+//                   final endOffset = targetPositions[index];
+
+//                   final startAnimationPoint =
+//                       centerPoint; // تبدأ دائماً من المركز (الوضع الطبيعي قبل التجميع)
+//                   final endAnimationPoint = endOffset;
+
+//                   return AnimatedBuilder(
+//                     animation: _puzzleAnimation,
+//                     builder: (context, child) {
+//                       final currentX =
+//                           startOffset.dx +
+//                           (_puzzleAnimation.value *
+//                               (endOffset.dx - startOffset.dx));
+//                       final currentY =
+//                           startOffset.dy +
+//                           (_puzzleAnimation.value *
+//                               (endOffset.dy - startOffset.dy));
+
+//                       return Positioned(
+//                         left: currentX,
+//                         top: currentY,
+//                         child: child!,
+//                       );
+//                     },
+//                     child: _buildNoteWidget(
+//                       context,
+//                       note,
+//                       notesService,
+//                       cardWidth,
+//                       cardHeight,
+//                       index,
+//                     ),
+//                   );
+//                 }).toList(),
+//               ],
 //             );
 //           },
 //         ),
