@@ -143,19 +143,19 @@ class _InteractiveTabletScreenState extends State<InteractiveTabletScreen>
                   SizedBox(width: 15),
 
                   // زر لعبة البازل الجديد
-                  _buildActionButton(
-                    icon: Icons.games_rounded,
-                    text: isLargeScreen ? 'العب الآن' : 'لعبة',
-                    color: Colors.purple.shade400,
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PuzzleGameScreen(),
-                        ),
-                      );
-                    },
-                  ),
+                  // _buildActionButton(
+                  //   icon: Icons.games_rounded,
+                  //   text: isLargeScreen ? 'العب الآن' : 'لعبة',
+                  //   color: Colors.purple.shade400,
+                  //   onPressed: () {
+                  //     Navigator.push(
+                  //       context,
+                  //       MaterialPageRoute(
+                  //         builder: (context) => PuzzleGameScreen(),
+                  //       ),
+                  //     );
+                  //   },
+                  // ),
                   SizedBox(width: 15),
 
                   _buildActionButton(

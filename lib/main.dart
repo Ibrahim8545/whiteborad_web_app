@@ -48,7 +48,7 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
         debugShowCheckedModeBanner: false,
-        home: PuzzleGameScreen(),
+        home: InteractiveTabletScreen(),
       ),
     );
   }
